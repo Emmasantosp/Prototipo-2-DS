@@ -1,0 +1,13 @@
+.gradle/
+build/
+bin/
+.metadata/
+.settings/
+.project
+.classpath
+.idea/
+*.iml
+out/
+
+# Base de datos H2 en disco
+data/
