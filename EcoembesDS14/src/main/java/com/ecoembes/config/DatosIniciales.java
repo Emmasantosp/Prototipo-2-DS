@@ -12,8 +12,8 @@ import com.ecoembes.dao.EmpleadoRepository;
 import com.ecoembes.dao.PlantaRepository;
 import com.ecoembes.entity.Contenedor;
 import com.ecoembes.entity.Empleado;
-import com.ecoembes.entity.NivelLlenado;
 import com.ecoembes.entity.PlantaReciclaje;
+import com.ecoembes.service.ContenedorService;
 
 /**
  * Carga los datos de prueba en la base de datos al arrancar, solo si las tablas están vacías.
@@ -67,18 +67,10 @@ public class DatosIniciales implements CommandLineRunner {
             int base = (int) d[3], paso = (int) d[4];
             for (int dia = 4; dia >= 0; dia--) {          // lecturas de los últimos 5 días
                 int envases = Math.min(1000, base + paso * (4 - dia));
-                c.registrarLectura(hoy.minusDays(dia), envases, nivelSegunOcupacion(envases, 1000));
+                c.registrarLectura(hoy.minusDays(dia), envases, ContenedorService.nivelSegunOcupacion(envases, 1000));
             }
             contenedores.add(c);
         }
         return contenedores;
-    }
-
-    //Solo para generar datos de prueba coherentes: el nivel real lo envía el sensor
-    private static NivelLlenado nivelSegunOcupacion(int envases, int capacidad) {
-        double ocupacion = (double) envases / capacidad;
-        if (ocupacion < 0.5) return NivelLlenado.VERDE;
-        if (ocupacion < 0.8) return NivelLlenado.NARANJA;
-        return NivelLlenado.ROJO;
     }
 }

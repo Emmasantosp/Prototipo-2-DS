@@ -30,19 +30,12 @@ public class PlasSBService {
         return capacidadRepository.findById(fecha);
     }
 
-    //Registra la notificación y descuenta las toneladas de la capacidad de ese día
+    //Guarda en la BD la notificación enviada por Ecoembes
     @Transactional
-    public synchronized Notificacion registrarNotificacion(LocalDate fecha, int numContenedores, int totalEnvases, double toneladas) {
-        CapacidadDiaria capacidad = capacidadRepository.findById(fecha)
-                .orElseThrow(() -> new IllegalStateException("PlasSB no ha publicado capacidad para " + fecha));
-        if (toneladas > capacidad.getDisponible()) {
-            throw new IllegalStateException("Capacidad insuficiente para " + fecha + ": quedan " + capacidad.getDisponible() + " t");
-        }
-        capacidad.ocupar(toneladas);
-        capacidadRepository.save(capacidad);
-        System.out.printf("[PlasSB] Notificación recibida para %s: %d contenedores, %d envases (%.3f t)%n",
-                fecha, numContenedores, totalEnvases, toneladas);
-        return notificacionRepository.save(new Notificacion(fecha, numContenedores, totalEnvases, toneladas));
+    public Notificacion registrarNotificacion(LocalDate fecha, int numContenedores, int totalEnvases) {
+        System.out.printf("[PlasSB] Notificación recibida para %s: %d contenedores, %d envases%n",
+                fecha, numContenedores, totalEnvases);
+        return notificacionRepository.save(new Notificacion(fecha, numContenedores, totalEnvases));
     }
 
     @Transactional(readOnly = true)

@@ -6,18 +6,21 @@ Proyecto Java 21 + Spring Boot 3.5 + Gradle 9 (funciona con JDK 21 o superior, i
 ```
 ./gradlew bootRun          # Windows: gradlew.bat bootRun
 ```
-Swagger UI: http://localhost:8080/swagger-ui.html · Consola H2: http://localhost:8080/h2-console
+Swagger UI: http://localhost:8080/swagger-ui.html · Consola H2: http://localhost:8080/h2-console (JDBC URL: `jdbc:h2:file:./data/ecoembes`, usuario `sa`, sin contraseña)
 
 ## Usuarios de prueba
-ana@ecoembes.com / 1234 · jon@ecoembes.com / 1234 · maria@ecoembes.com / 1234
+lorea@ecoembes.com / 1234 · jon@ecoembes.com / 4321 · iker@ecoembes.com / 1122
 
 ## Paquetes
-- `com.ecoembes.facade`: controllers REST (fachada remota) y gestor de errores
-- `com.ecoembes.service`: AppServices (Auth, Contenedor, Planta, Asignacion)
+- `com.ecoembes.facade`: fachada remota (EcoembesController, ContenedorController) y gestor de errores
+- `com.ecoembes.service`: AppServices (EcoembesService, ContenedorService)
 - `com.ecoembes.dao`: DAOs (repositorios Spring Data JPA)
-- `com.ecoembes.gateway`: Service Gateways de las plantas (PlasSB por REST, ContSocket por sockets) y su factoría
+- `com.ecoembes.gateway`: Service Gateways de las plantas (IPlantaGateway, PlasSBGateway por REST, ContSocketGateway por sockets) y su factoría (PlantaGatewayFactory)
 - `com.ecoembes.config`: carga de datos iniciales en la BD
 - `com.ecoembes.state`: ServerState (tokens activos)
 - `com.ecoembes.dto`: DTOs del API
 - `com.ecoembes.entity`: dominio
 - `com.ecoembes.exception`: excepciones de la aplicación (400, 401, 404, 503)
+
+## Direcciones de las plantas
+En `src/main/resources/application.properties`: `plantas.plassb.url`, `plantas.contsocket.host` y `plantas.contsocket.port`.

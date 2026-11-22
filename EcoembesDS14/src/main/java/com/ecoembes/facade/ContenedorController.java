@@ -22,7 +22,7 @@ import com.ecoembes.dto.ContenedorHistorialDTO;
 import com.ecoembes.dto.CrearContenedorDTO;
 import com.ecoembes.dto.RegistroUsoDTO;
 import com.ecoembes.entity.Contenedor;
-import com.ecoembes.service.AuthService;
+import com.ecoembes.service.EcoembesService;
 import com.ecoembes.service.ContenedorService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,11 +41,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Tag(name = "2. Contenedores", description = "creación de contenedores, lecturas del sensor RecycloBin y consultas de los contenedores")
 public class ContenedorController {
 
-    private final AuthService authService;
+    private final EcoembesService ecoembesService;
     private final ContenedorService contenedorService;
 
-    public ContenedorController(AuthService authService, ContenedorService contenedorService) {
-        this.authService = authService;
+    public ContenedorController(EcoembesService ecoembesService, ContenedorService contenedorService) {
+        this.ecoembesService = ecoembesService;
         this.contenedorService = contenedorService;
     }
 
@@ -57,14 +57,14 @@ public class ContenedorController {
     public ResponseEntity<ContenedorDTO> crearContenedor(
             @Parameter(description = "Token de sesión", required = true) @RequestParam("token") String token,
             @Valid @RequestBody CrearContenedorDTO dto) {
-        authService.getEmpleado(token); //se llama a AuthService para validar el token y obtener el empleado asociado, si el token es inválido se lanza una excepción
+        ecoembesService.getEmpleado(token); //se llama a ecoembesService para validar el token y obtener el empleado asociado, si el token es inválido se lanza una excepción
         Contenedor c = contenedorService.crearContenedor(dto.id(), dto.ubicacion(), dto.codigoPostal(), dto.capacidad()); //si todo va bien, se llama a ContenedorService para crear el contenedor con los datos del DTO y se devuelve el contenedor creado
         return ResponseEntity.status(HttpStatus.CREATED).body(toDTO(c));
     }
 
     @PutMapping("/{idContenedor}")
     @Operation(summary = "Actualizar un contenedor (lectura del sensor)",
-               description = "Simula el envío diario del sensor: nº estimado de envases y nivel de llenado.")
+               description = "Simula el envío diario del sensor con el nº estimado de envases. Se guarda como lectura de hoy y el nivel de llenado se calcula según la ocupación.")
     @ApiResponse(responseCode = "200", description = "Contenedor actualizado")
     @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content(schema = @Schema(implementation = ErrorDTO.class)))
     @ApiResponse(responseCode = "401", description = "Token inválido", content = @Content(schema = @Schema(implementation = ErrorDTO.class)))
@@ -73,8 +73,8 @@ public class ContenedorController {
             @Parameter(description = "Id del contenedor", example = "CNT-BIO-001") @PathVariable("idContenedor") String idContenedor,
             @Parameter(description = "Token de sesión", required = true) @RequestParam("token") String token,
             @Valid @RequestBody ActualizarContenedorDTO dto) {
-        authService.getEmpleado(token);
-        Contenedor c = contenedorService.actualizarContenedor(idContenedor, dto.fecha(), dto.numEnvases(), dto.nivelLlenado());
+        ecoembesService.getEmpleado(token);
+        Contenedor c = contenedorService.actualizarContenedor(idContenedor, dto.numEnvases());
         return ResponseEntity.ok(toDTO(c));
     }
 
@@ -89,7 +89,7 @@ public class ContenedorController {
             @Parameter(description = "Fecha de inicio (AAAA-MM-DD)", required = true) @RequestParam("inicio") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
             @Parameter(description = "Fecha de fin (AAAA-MM-DD)", required = true) @RequestParam("fin") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fin,
             @Parameter(description = "Token de sesión", required = true) @RequestParam("token") String token) {
-        authService.getEmpleado(token);
+        ecoembesService.getEmpleado(token);
         Contenedor c = contenedorService.getContenedor(idContenedor);
         List<RegistroUsoDTO> registros = contenedorService.consultarUso(idContenedor, inicio, fin).stream()
                 .map(r -> new RegistroUsoDTO(r.getFecha(), r.getNumEnvases(), r.getNivelLlenado()))
@@ -107,7 +107,7 @@ public class ContenedorController {
             @Parameter(description = "Código postal de la zona", required = true, example = "48001") @RequestParam("codigoPostal") String codigoPostal,
             @Parameter(description = "Fecha (AAAA-MM-DD)", required = true) @RequestParam("fecha") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
             @Parameter(description = "Token de sesión", required = true) @RequestParam("token") String token) {
-        authService.getEmpleado(token);
+        ecoembesService.getEmpleado(token);
         List<ContenedorEstadoDTO> estados = contenedorService.consultarZona(codigoPostal, fecha).stream()
                 .map(c -> contenedorService.getEstadoEnFecha(c, fecha) //recorre la lista de contenedores de la zona y para cada contenedor obtiene su estado en la fecha indicada, si no hay estado disponible lanza una excepción
                         .map(r -> new ContenedorEstadoDTO(c.getId(), c.getUbicacion(), r.getFecha(), r.getNumEnvases(), r.getNivelLlenado()))

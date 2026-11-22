@@ -35,14 +35,16 @@ public class ContenedorService {
         return contenedorRepository.save(c);
     }
 
-    //Actualiza el contenedor con la lectura diaria del sensor (simulada desde Swagger/Postman en los prototipos)
+    //Actualiza el contenedor con la lectura diaria del sensor (simulada desde Swagger/Postman en los prototipos).
+    //Solo llega el nº de envases: la lectura es la de hoy y el nivel se calcula según la ocupación
     @Transactional
-    public Contenedor actualizarContenedor(String id, LocalDate fecha, int numEnvases, NivelLlenado nivel) {
+    public Contenedor actualizarContenedor(String id, int numEnvases) {
         Contenedor c = getContenedor(id); //busca el contenedor en la BD. Si no existe lanza 404
         if (numEnvases > c.getCapacidad()) {
             throw new PeticionInvalidaException("El nº de envases supera la capacidad del contenedor (" + c.getCapacidad() + ")");
         }
-        c.registrarLectura(fecha != null ? fecha : LocalDate.now(), numEnvases, nivel); //guarda la lectura en el contenedor. Si ya existía una lectura para esa fecha, la reemplaza
+        NivelLlenado nivel = nivelSegunOcupacion(numEnvases, c.getCapacidad()); //calcula el nivel según lo lleno que está
+        c.registrarLectura(LocalDate.now(), numEnvases, nivel); //guarda la lectura de hoy; si ya había una de hoy, la reemplaza
         return contenedorRepository.save(c);
     }
 
@@ -71,5 +73,13 @@ public class ContenedorService {
 
     public Optional<RegistroUsoContenedor> getEstadoEnFecha(Contenedor c, LocalDate fecha) {
         return c.getEstadoEnFecha(fecha);
+    }
+
+    //Nivel de llenado según la ocupación: VERDE < 50 %, NARANJA < 80 %, ROJO el resto
+    public static NivelLlenado nivelSegunOcupacion(int envases, int capacidad) {
+        double ocupacion = (double) envases / capacidad;
+        if (ocupacion < 0.5) return NivelLlenado.VERDE;
+        if (ocupacion < 0.8) return NivelLlenado.NARANJA;
+        return NivelLlenado.ROJO;
     }
 }

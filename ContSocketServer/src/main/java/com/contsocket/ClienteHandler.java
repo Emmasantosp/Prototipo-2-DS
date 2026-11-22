@@ -10,11 +10,12 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Atiende una conexión: lee una petición, la procesa y envía la respuesta.
- * Protocolo (texto con writeUTF/readUTF):
- *   CAPACIDAD;AAAA-MM-DD                                   -> OK;toneladas | SIN_CAPACIDAD
- *   NOTIFICAR;AAAA-MM-DD;contenedores;envases;toneladas    -> OK | ERROR;mensaje
- *   Cualquier otra cosa                                    -> ERROR;mensaje
+ * Atiende una conexión: lee un mensaje, lo procesa y envía la respuesta.
+ * Protocolo (texto con writeUTF/readUTF, campos separados por ';'):
+ *   CONSULTAR_CAPACIDAD;fecha                                  -> OK;fecha;capacidadToneladas
+ *                                                                 | ERROR;400;Fecha inválida | ERROR;404;No hay capacidad publicada para esa fecha
+ *   NOTIFICAR_ASIGNACION;fecha;numContenedores;totalEnvases    -> OK;idNotificacion | ERROR;400;Datos inválidos
+ *   Cualquier otro mensaje                                     -> ERROR;400;Comando desconocido
  */
 public class ClienteHandler implements Runnable {
 
@@ -31,9 +32,9 @@ public class ClienteHandler implements Runnable {
         try (Socket s = socket;
              DataInputStream in = new DataInputStream(s.getInputStream());
              DataOutputStream out = new DataOutputStream(s.getOutputStream())) {
-            String peticion = in.readUTF();
-            String respuesta = procesar(peticion);
-            System.out.println("[ContSocket] " + peticion + " -> " + respuesta);
+            String mensaje = in.readUTF();
+            String respuesta = procesar(mensaje);
+            System.out.println("[ContSocket] " + mensaje + " -> " + respuesta);
             out.writeUTF(respuesta);
             out.flush();
         } catch (IOException e) {
@@ -41,27 +42,50 @@ public class ClienteHandler implements Runnable {
         }
     }
 
-    String procesar(String peticion) {
-        String[] partes = peticion.split(";");
+    String procesar(String mensaje) {
+        String[] partes = mensaje.split(";");
+        for (int i = 0; i < partes.length; i++) {
+            partes[i] = partes[i].trim();
+        }
+        switch (partes[0]) {
+            case "CONSULTAR_CAPACIDAD":
+                return consultarCapacidad(partes);
+            case "NOTIFICAR_ASIGNACION":
+                return notificarAsignacion(partes);
+            default:
+                return "ERROR;400;Comando desconocido";
+        }
+    }
+
+    private String consultarCapacidad(String[] partes) {
+        if (partes.length != 2) {
+            return "ERROR;400;Fecha inválida";
+        }
         try {
-            switch (partes[0]) {
-                case "CAPACIDAD": {
-                    LocalDate fecha = LocalDate.parse(partes[1]);
-                    Optional<Double> disponible = store.consultar(fecha);
-                    return disponible.map(t -> String.format(Locale.ROOT, "OK;%.3f", t)).orElse("SIN_CAPACIDAD");
-                }
-                case "NOTIFICAR": {
-                    LocalDate fecha = LocalDate.parse(partes[1]);
-                    int contenedores = Integer.parseInt(partes[2]);
-                    int envases = Integer.parseInt(partes[3]);
-                    double toneladas = Double.parseDouble(partes[4]);
-                    return store.registrarNotificacion(fecha, contenedores, envases, toneladas);
-                }
-                default:
-                    return "ERROR;Operación desconocida: " + partes[0];
+            LocalDate fecha = LocalDate.parse(partes[1]);
+            Optional<Double> capacidad = store.consultarCapacidad(fecha);
+            return capacidad.map(t -> String.format(Locale.ROOT, "OK;%s;%.3f", fecha, t))
+                    .orElse("ERROR;404;No hay capacidad publicada para esa fecha");
+        } catch (DateTimeParseException e) {
+            return "ERROR;400;Fecha inválida";
+        }
+    }
+
+    private String notificarAsignacion(String[] partes) {
+        if (partes.length != 4) {
+            return "ERROR;400;Datos inválidos";
+        }
+        try {
+            LocalDate fecha = LocalDate.parse(partes[1]);
+            int numContenedores = Integer.parseInt(partes[2]);
+            int totalEnvases = Integer.parseInt(partes[3]);
+            if (numContenedores <= 0 || totalEnvases < 0) {
+                return "ERROR;400;Datos inválidos";
             }
-        } catch (ArrayIndexOutOfBoundsException | DateTimeParseException | NumberFormatException e) {
-            return "ERROR;Petición mal formada: " + peticion;
+            int id = store.registrarNotificacion(fecha, numContenedores, totalEnvases);
+            return "OK;" + id;
+        } catch (DateTimeParseException | NumberFormatException e) {
+            return "ERROR;400;Datos inválidos";
         }
     }
 }

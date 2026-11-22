@@ -20,14 +20,15 @@ public class PlasSBGateway implements IPlantaGateway {
         this.restClient = restClient;
     }
 
+    //GET /plassb/capacidad?fecha=AAAA-MM-DD -> 200 {fecha, capacidadToneladas} | 404 sin capacidad publicada
     @Override
     public Optional<Double> consultarCapacidad(LocalDate fecha) {
         try {
             PlasSBCapacidadDTO dto = restClient.get()
-                    .uri(uri -> uri.path("/api/capacidad").queryParam("fecha", fecha.toString()).build())
+                    .uri(uri -> uri.path("/plassb/capacidad").queryParam("fecha", fecha.toString()).build())
                     .retrieve()
                     .body(PlasSBCapacidadDTO.class);
-            return Optional.ofNullable(dto).map(PlasSBCapacidadDTO::toneladas);
+            return Optional.ofNullable(dto).map(PlasSBCapacidadDTO::capacidadToneladas);
         } catch (HttpClientErrorException.NotFound e) {
             return Optional.empty(); //PlasSB no ha publicado capacidad para ese día
         } catch (RestClientException e) {
@@ -35,17 +36,18 @@ public class PlasSBGateway implements IPlantaGateway {
         }
     }
 
+    //POST /plassb/notificaciones con body {fecha, numContenedores, totalEnvases} -> 201 | 400 datos inválidos
     @Override
-    public void notificarAsignacion(LocalDate fecha, int numContenedores, int totalEnvases, double toneladas) {
+    public void notificarAsignacion(LocalDate fecha, int numContenedores, int totalEnvases) {
         try {
             restClient.post()
-                    .uri("/api/notificaciones")
+                    .uri("/plassb/notificaciones")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(new PlasSBNotificacionDTO(fecha, numContenedores, totalEnvases, toneladas))
+                    .body(new PlasSBNotificacionDTO(fecha, numContenedores, totalEnvases))
                     .retrieve()
                     .toBodilessEntity();
         } catch (HttpClientErrorException e) {
-            throw new PeticionInvalidaException("PlasSB ha rechazado la asignación: " + e.getResponseBodyAsString());
+            throw new PeticionInvalidaException("PlasSB ha rechazado la notificación: " + e.getResponseBodyAsString());
         } catch (RestClientException e) {
             throw new ServicioExternoException("No se ha podido contactar con PlasSB: " + e.getMessage());
         }

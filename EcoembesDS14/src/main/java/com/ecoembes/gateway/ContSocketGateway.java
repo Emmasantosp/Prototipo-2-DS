@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.time.LocalDate;
-import java.util.Locale;
 import java.util.Optional;
 
 import com.ecoembes.exception.PeticionInvalidaException;
@@ -15,8 +14,8 @@ import com.ecoembes.exception.ServicioExternoException;
 /**
  * Service Gateway de ContSocket Ltd.: se comunica con su servidor mediante sockets TCP.
  * Protocolo de texto (writeUTF/readUTF), una petición por conexión:
- *   CAPACIDAD;AAAA-MM-DD                     -> OK;toneladas | SIN_CAPACIDAD | ERROR;mensaje
- *   NOTIFICAR;AAAA-MM-DD;contenedores;envases;toneladas -> OK | ERROR;mensaje
+ *   CONSULTAR_CAPACIDAD;AAAA-MM-DD                                   -> OK;fecha;capacidadToneladas | ERROR;404;mensaje | ERROR;400;mensaje
+ *   NOTIFICAR_ASIGNACION;AAAA-MM-DD;numContenedores;totalEnvases     -> OK;idNotificacion | ERROR;400;mensaje
  */
 public class ContSocketGateway implements IPlantaGateway {
 
@@ -32,22 +31,21 @@ public class ContSocketGateway implements IPlantaGateway {
 
     @Override
     public Optional<Double> consultarCapacidad(LocalDate fecha) {
-        String respuesta = enviar("CAPACIDAD;" + fecha);
-        if (respuesta.startsWith("OK;")) {
-            return Optional.of(Double.parseDouble(respuesta.substring(3)));
+        String[] respuesta = enviar("CONSULTAR_CAPACIDAD;" + fecha).split(";");
+        if (respuesta[0].equals("OK") && respuesta.length == 3) {
+            return Optional.of(Double.parseDouble(respuesta[2]));
         }
-        if (respuesta.equals("SIN_CAPACIDAD")) {
-            return Optional.empty();
+        if (respuesta[0].equals("ERROR") && respuesta.length > 1 && respuesta[1].equals("404")) {
+            return Optional.empty(); //ContSocket no ha publicado capacidad para ese día
         }
-        throw new ServicioExternoException("Respuesta inesperada de ContSocket: " + respuesta);
+        throw new ServicioExternoException("Respuesta inesperada de ContSocket: " + String.join(";", respuesta));
     }
 
     @Override
-    public void notificarAsignacion(LocalDate fecha, int numContenedores, int totalEnvases, double toneladas) {
-        String peticion = String.format(Locale.ROOT, "NOTIFICAR;%s;%d;%d;%.3f", fecha, numContenedores, totalEnvases, toneladas);
-        String respuesta = enviar(peticion);
-        if (!respuesta.equals("OK")) {
-            throw new PeticionInvalidaException("ContSocket ha rechazado la asignación: " + respuesta);
+    public void notificarAsignacion(LocalDate fecha, int numContenedores, int totalEnvases) {
+        String respuesta = enviar("NOTIFICAR_ASIGNACION;" + fecha + ";" + numContenedores + ";" + totalEnvases);
+        if (!respuesta.startsWith("OK;")) {
+            throw new PeticionInvalidaException("ContSocket ha rechazado la notificación: " + respuesta);
         }
     }
 
@@ -56,11 +54,12 @@ public class ContSocketGateway implements IPlantaGateway {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(host, puerto), TIMEOUT_MS);
             socket.setSoTimeout(TIMEOUT_MS);
-            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-            DataInputStream in = new DataInputStream(socket.getInputStream());
-            out.writeUTF(peticion);
-            out.flush();
-            return in.readUTF();
+            try (DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+                 DataInputStream in = new DataInputStream(socket.getInputStream())) {
+                out.writeUTF(peticion);
+                out.flush();
+                return in.readUTF();
+            }
         } catch (IOException e) {
             throw new ServicioExternoException("No se ha podido contactar con ContSocket en " + host + ":" + puerto);
         }

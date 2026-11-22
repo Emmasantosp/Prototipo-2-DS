@@ -9,9 +9,9 @@ import java.util.Optional;
  */
 public interface IPlantaGateway {
 
-    /** Capacidad disponible (toneladas) para un día. Vacío si la planta no ha publicado capacidad ese día. */
+    /** Capacidad publicada por la planta (toneladas) para un día. Vacío si la planta no ha publicado capacidad ese día. */
     Optional<Double> consultarCapacidad(LocalDate fecha);
 
-    /** Notifica a la planta los contenedores y envases que recibirá ese día. */
-    void notificarAsignacion(LocalDate fecha, int numContenedores, int totalEnvases, double toneladas);
+    /** Notifica a la planta el nº total de contenedores y de envases que recibirá ese día. */
+    void notificarAsignacion(LocalDate fecha, int numContenedores, int totalEnvases);
 }

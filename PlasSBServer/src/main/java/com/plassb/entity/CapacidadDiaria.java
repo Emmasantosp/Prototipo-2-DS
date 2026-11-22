@@ -13,26 +13,15 @@ public class CapacidadDiaria {
 
     @Id
     private LocalDate fecha;
-    private double capacidadTotal; //Toneladas que la planta puede procesar ese día
-    private double capacidadOcupada; //Toneladas ya comprometidas por asignaciones de Ecoembes
+    private double capacidadToneladas; //Toneladas que la planta puede procesar ese día
 
     protected CapacidadDiaria() { } //Constructor vacío que necesita JPA
 
-    public CapacidadDiaria(LocalDate fecha, double capacidadTotal) {
+    public CapacidadDiaria(LocalDate fecha, double capacidadToneladas) {
         this.fecha = fecha;
-        this.capacidadTotal = capacidadTotal;
-        this.capacidadOcupada = 0;
-    }
-
-    public double getDisponible() {
-        return Math.round((capacidadTotal - capacidadOcupada) * 1000) / 1000.0;
-    }
-
-    public void ocupar(double toneladas) {
-        this.capacidadOcupada += toneladas;
+        this.capacidadToneladas = capacidadToneladas;
     }
 
     public LocalDate getFecha() { return fecha; }
-    public double getCapacidadTotal() { return capacidadTotal; }
-    public double getCapacidadOcupada() { return capacidadOcupada; }
+    public double getCapacidadToneladas() { return capacidadToneladas; }
 }
