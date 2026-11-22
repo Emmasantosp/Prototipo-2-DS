@@ -24,6 +24,7 @@ dependencies {
 // Compila para Java 21 con cualquier JDK 21 o superior (también Java 25)
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
+    options.encoding = 'UTF-8'
 }
 
 tasks.named('test') {
